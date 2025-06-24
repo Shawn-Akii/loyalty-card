@@ -1,0 +1,1559 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>集點卡系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8f9fa;
+            padding-bottom: 70px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        
+        .page {
+            display: none;
+            padding-bottom: 80px;
+        }
+        
+        .active-page {
+            display: block;
+        }
+        
+        .nav-icon {
+            transition: all 0.3s;
+        }
+        
+        .active-nav {
+            color: #4f46e5;
+            transform: translateY(-5px);
+        }
+        
+        .top-button {
+            display: none;
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            z-index: 99;
+            transition: all 0.3s;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+             
+        .point-icon {
+            width: 100%;
+            aspect-ratio: 1 / 1; /*--確保方形--*/
+            margin: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+        }
+        
+        .unused-point {
+            background-color: #ffffff;
+            border: 2px dashed #9ca3af;
+            color: #9ca3af;
+        }
+        
+        .used-point {
+            background-color: #4f46e5;
+            color: white;
+            border: 2px solid #4f46e5;
+        }
+        
+        .service-option {
+            transition: all 0.2s;
+        }
+        
+        .service-option.selected {
+            transform: scale(0.95);
+            color: white;
+        }
+        
+        .customer-card {
+            transition: all 0.3s;
+        }
+        
+        .customer-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .login-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f8f9fa;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .settings-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 99;
+        }
+        
+        .logout-button {
+            position: fixed;
+            top: 20px;
+            right: 70px;
+            z-index: 99;
+        }
+        
+        .settings-panel {
+            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        
+        .settings-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 400px;
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1001;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            max-width: 90%;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        .notification.success {
+            background-color: #d1fae5;
+            border-left: 4px solid #10b981;
+        }
+        
+        .notification.error {
+            background-color: #fee2e2;
+            border-left: 4px solid #ef4444;
+        }
+        
+        .notification.warning {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .text-center-custom {
+            text-align: center;
+        }
+        
+        /* 服務顏色 */
+        .service-洗髮 {
+            background-color: #60a5fa;
+        }
+        .service-剪髮 {
+            background-color: #f97316;
+        }
+        .service-護髮 {
+            background-color: #10b981;
+        }
+        .service-染髮 {
+            background-color: #8b5cf6;
+        }
+        .service-燙髮 {
+            background-color: #ec4899;
+        }
+        .service-深層護理 {
+            background-color: #f59e0b;
+        }
+        
+        /* 服務標籤 */
+        .service-tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.875rem;
+            margin-right: 8px;
+        }
+        
+        .delete-customer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background-color: #f3f4f6;
+            transition: all 0.2s;
+        }
+        
+        .delete-customer:hover {
+            background-color: #fee2e2;
+        }
+        
+        .export-json-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        
+        .export-json-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        /* 直接覆蓋原本那段 */
+        .points-container {
+            display: block;   /* 讓每一 row 換行佔滿 100% */
+            margin: 15px 0;   /* 整塊上下留白 */
+            }
+
+        
+        .point-icons-row {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);  /* 一排 10 格 */
+            gap: 30px;         /* 同一排左右 ＋上下間隔都用這個值 */
+            width: 100%;
+            margin-bottom: 30px;          /* ★ 這就是排與排的垂直距離 */
+            }
+
+        .point-icons-row:last-child {
+            margin-bottom: 0;             /* 最後一排不要多餘空隙 - 可留可不留 */
+            }
+
+        /* 讓尚未使用的格子由小圓點 → 星星，大小自適應 */
+        .unused-point i {                              /* ← 只改未使用點數的 icon */
+            font-size: clamp(18px, 3.5vw, 36px);         /* 最小 18px，最大 36px，隨螢幕寬度線性伸縮 */
+            }
+
+        .used-point i {
+            font-size: clamp(18px, 3.5vw, 36px);         /* 最小 18px，最大 36px，隨螢幕寬度線性伸縮 */
+            }
+        /* 1️⃣ 讓每排 10 顆在任何寬度都塞得下 */
+        .point-icons-row{
+            display:grid;
+            grid-template-columns:repeat(10,minmax(0,1fr)); /* 每顆最小 0、最大平均分 */
+            column-gap:clamp(4px,1vw,12px);  /* 左右間距：手機 4px → 桌機 12px */
+            row-gap:clamp(4px,1vw,12px);     /* 上下間距：同理 */
+            margin-bottom:clamp(4px,1vw,12px); /* 每排與下一排距離，同步縮放 */
+            }
+
+            /* 2️⃣ 單顆格子保持正方形，圓角比例也隨大小改變 */
+        .point-icon{
+            width:100%;
+            aspect-ratio:1/1;          /* 永遠正方形 */
+            border:2px dashed #cbd5e1; /* 灰色虛線框 */
+            border-radius:20%;         /* 20% = 圓角比例，格子變小角也跟著變 */
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:#fff;           /* 保險起見，給白底 */
+            }
+
+            /* 3️⃣ 星星大小自適應（未使用點數）*/
+        .unused-point i{
+            font-size:clamp(14px,3.5vw,28px); /* 手機 14px → 桌機 28px */
+            color:#9ca3af;
+            }
+
+            /* 4️⃣ 已使用點數（藍底打勾）保持滿格、圓角一致 */
+        .used-point{
+            background:#3b82f6;
+            color:#fff;
+            border:2px solid #3b82f6;
+            border-radius:20%;         /* 與 .point-icon 一致 */
+            }
+
+        /* 深層護理按鈕在小螢幕上的字級調整 */
+        @media (max-width: 380px) {
+            .service-深層護理 {
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 登入頁面 -->
+    <div id="loginPage" class="login-container bg-gradient-to-br from-indigo-500 to-purple-600">
+        <div class="bg-white p-8 rounded-lg shadow-lg w-11/12 max-w-md">
+            <div class="text-center mb-6">
+                <i class="fas fa-ticket-alt text-4xl text-indigo-600"></i>
+                <h1 class="text-2xl font-bold mt-2">集點卡系統</h1>
+                <p class="text-gray-500 mt-1">請登入以繼續使用</p>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">帳號</label>
+                    <input type="text" id="username" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入帳號">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">密碼</label>
+                    <input type="password" id="password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入密碼">
+                </div>
+                <button id="loginBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
+                    登入
+                </button>
+                <p id="loginError" class="text-red-500 text-center hidden">帳號或密碼錯誤，請重試</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設定面板 -->
+    <div id="settingsPanel" class="settings-panel">
+        <div class="settings-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">用戶設定</h2>
+                <button id="closeSettings" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="currentPassword" class="block text-sm font-medium text-gray-700">目前密碼</label>
+                    <input type="password" id="currentPassword" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入目前密碼">
+                </div>
+                <div>
+                    <label for="newPassword" class="block text-sm font-medium text-gray-700">新密碼</label>
+                    <input type="password" id="newPassword" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入新密碼">
+                </div>
+                <div>
+                    <label for="confirmPassword" class="block text-sm font-medium text-gray-700">確認新密碼</label>
+                    <input type="password" id="confirmPassword" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請再次輸入新密碼">
+                </div>
+                <button id="changePasswordBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
+                    更改密碼
+                </button>
+                <p id="passwordError" class="text-red-500 text-center hidden">密碼錯誤或不匹配，請重試</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 匯出JSON模態框 -->
+    <div id="exportJsonModal" class="export-json-modal">
+        <div class="export-json-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">匯出JSON資料</h2>
+                <button id="closeExportJson" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mb-4">
+                <textarea id="jsonOutput" class="w-full h-64 p-4 border border-gray-300 rounded-md font-mono text-sm" readonly></textarea>
+            </div>
+            <div class="flex justify-between">
+                <button id="copyJsonBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
+                    <i class="fas fa-copy mr-1"></i> 複製JSON
+                </button>
+                <button id="downloadJsonBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200">
+                    <i class="fas fa-download mr-1"></i> 下載JSON檔案
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 設定按鈕 -->
+    <button id="settingsBtn" class="settings-button bg-white p-2 rounded-full shadow-md">
+        <i class="fas fa-cog text-gray-600"></i>
+    </button>
+    
+    <!-- 登出按鈕 -->
+    <button id="logoutBtn" class="logout-button bg-white p-2 rounded-full shadow-md">
+        <i class="fas fa-sign-out-alt text-gray-600"></i>
+    </button>
+
+    <!-- 客戶查詢頁面 -->
+    <div id="customerSearchPage" class="page active-page">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-center mb-2">
+                <i class="fas fa-ticket-alt text-indigo-600 mr-2"></i>
+                <h1 class="text-2xl font-bold">集點卡系統</h1>
+            </div>
+            <p class="text-center-custom text-gray-600 mb-6">輸入手機號碼查詢集點狀況</p>
+            
+            <!-- 搜尋區塊 -->
+            <div class="bg-white rounded-lg shadow-md p-4 mb-6 w-full">
+                <div class="flex items-center justify-center mb-4">
+                    <i class="fas fa-search text-indigo-600 mr-2"></i>
+                    <h2 class="text-lg font-semibold">客戶查詢</h2>
+                </div>
+                <div class="flex">
+                    <input type="text" id="searchPhone" class="flex-1 px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入手機號碼">
+                    <button id="searchBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-r-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
+                        <i class="fas fa-search mr-1"></i> 查詢
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 集點卡區塊 -->
+            <div id="pointCardBlock" class="bg-white rounded-lg shadow-md p-4 mb-6 w-full hidden">
+                <div class="flex items-center justify-center mb-4">
+                    <i class="fas fa-credit-card text-indigo-600 mr-2"></i>
+                    <h2 class="text-lg font-semibold">集點卡</h2>
+                </div>
+                
+                <!-- 客戶資訊 -->
+                <div class="mb-4">
+                    <div class="flex items-center justify-center mb-2">
+                        <i class="fas fa-user text-gray-500 mr-2"></i>
+                        <span id="customerName" class="text-gray-800"></span>
+                    </div>
+                    <div class="flex items-center justify-center mb-3">
+                        <i class="fas fa-phone text-gray-500 mr-2"></i>
+                        <span id="customerPhone" class="text-gray-800"></span>
+                    </div>
+                    <div class="flex justify-center space-x-4">
+                        <div class="bg-gray-100 px-3 py-2 rounded-md">
+                            <span class="text-sm text-gray-600">已使用點數:</span>
+                            <span id="usedPoints" class="font-semibold text-indigo-600 ml-1"></span>
+                        </div>
+                        <div class="bg-gray-100 px-3 py-2 rounded-md">
+                            <span class="text-sm text-gray-600">總點數:</span>
+                            <span id="totalPoints" class="font-semibold text-indigo-600 ml-1"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 選擇服務 -->
+                <div class="mb-4">
+                    <h3 class="text-sm font-medium text-gray-700 text-center mb-2">選擇要使用點數的服務</h3>
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <div class="service-option service-洗髮 px-3 py-2 rounded-md text-center cursor-pointer hover:opacity-90 text-white" data-service="洗髮">洗髮</div>
+                        <div class="service-option service-剪髮 px-3 py-2 rounded-md text-center cursor-pointer hover:opacity-90 text-white" data-service="剪髮">剪髮</div>
+                        <div class="service-option service-護髮 px-3 py-2 rounded-md text-center cursor-pointer hover:opacity-90 text-white" data-service="護髮">護髮</div>
+                        <div class="service-option service-染髮 px-3 py-2 rounded-md text-center cursor-pointer hover:opacity-90 text-white" data-service="染髮">染髮</div>
+                        <div class="service-option service-燙髮 px-3 py-2 rounded-md text-center cursor-pointer hover:opacity-90 text-white" data-service="燙髮">燙髮</div>
+                        <div class="service-option service-深層護理 px-3 py-2 rounded-md text-center cursor-pointer hover:opacity-90 text-white" data-service="深層護理">深層護理</div>
+                    </div>
+                    <button id="usePointBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                        使用點數
+                    </button>
+                </div>
+                
+                <!-- 點數圖示區塊 -->
+                <div id="pointIconsBlock" class=" points-container mb-4"></div>
+                
+                <!-- 增加點數功能 -->
+                <div class="border-t pt-4">
+                    <h3 class="text-sm font-medium text-gray-700 text-center mb-2">增加點數</h3>
+                    <div class="flex space-x-2">
+                        <input type="number" id="addPointsInput" min="1" max="10" class="flex-1 px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入要增加的點數">
+                        <button id="addPointsBtn" class="bg-green-600 text-white px-4 py-2 rounded-r-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200">
+                            <i class="fas fa-plus mr-1"></i> 增加點數
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 服務歷史區塊 -->
+            <div id="serviceHistoryBlock" class="bg-white rounded-lg shadow-md p-4 w-full hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-history text-indigo-600 mr-2"></i>
+                        <h2 class="text-lg font-semibold">服務歷史</h2>
+                    </div>
+                    <div class="bg-gray-100 px-3 py-1 rounded-md">
+                        <span class="text-sm text-gray-600">已使用點數:</span>
+                        <span id="historyUsedPoints" class="font-semibold text-indigo-600 ml-1"></span>
+                    </div>
+                </div>
+                
+                <!-- 歷史紀錄 -->
+                <div id="historyRecords" class="space-y-2"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 集點卡紀錄頁面 -->
+    <div id="pointCardRecordPage" class="page">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-center mb-2">
+                <i class="fas fa-list-alt text-indigo-600 mr-2"></i>
+                <h1 class="text-2xl font-bold">集點卡紀錄</h1>
+            </div>
+            <p class="text-center-custom text-gray-600 mb-6">查看客戶的歷史集點卡</p>
+            
+            <!-- 搜尋區塊 -->
+            <div class="bg-white rounded-lg shadow-md p-4 mb-6 w-full">
+                <div class="flex items-center mb-4">
+                    <i class="fas fa-search text-indigo-600 mr-2"></i>
+                    <h2 class="text-lg font-semibold">查詢客戶資料</h2>
+                </div>
+                <div class="flex mb-4">
+                    <input type="text" id="recordSearchPhone" class="flex-1 px-4 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入手機號碼">
+                    <button id="recordSearchBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-r-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
+                        <i class="fas fa-search mr-1"></i> 查詢
+                    </button>
+                </div>
+                
+                <!-- 匯出/匯入按鈕 -->
+                <div class="flex space-x-2">
+                    <button id="exportDataBtn" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200">
+                        <i class="fas fa-file-export mr-1"></i> 匯出資料
+                    </button>
+                    <button id="importDataBtn" class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
+                        <i class="fas fa-file-import mr-1"></i> 匯入資料
+                    </button>
+                </div>
+                <input type="file" id="fileInput" accept=".xlsx,.json" class="hidden">
+            </div>
+            
+            <!-- 客戶列表 -->
+            <div id="customerList" class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full"></div>
+        </div>
+    </div>
+
+    <!-- 新增客戶頁面 -->
+    <div id="addCustomerPage" class="page">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-center mb-2">
+                <i class="fas fa-user-plus text-indigo-600 mr-2"></i>
+                <h1 class="text-2xl font-bold">新增客戶</h1>
+            </div>
+            <p class="text-center-custom text-gray-600 mb-6">建立新的客戶集點卡</p>
+            
+            <!-- 表格區塊 -->
+            <div class="bg-white rounded-lg shadow-md p-4 w-full">
+                <form id="addCustomerForm" class="max-w-md mx-auto">
+                    <div class="mb-4">
+                        <label for="newCustomerName" class="block text-sm font-medium text-gray-700 mb-1">客戶姓名</label>
+                        <input type="text" id="newCustomerName" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入客戶姓名" required>
+                    </div>
+                    <div class="mb-4">
+                        <label for="newCustomerPhone" class="block text-sm font-medium text-gray-700 mb-1">手機號碼</label>
+                        <input type="text" id="newCustomerPhone" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入客戶手機號碼" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="newCustomerPoints" class="block text-sm font-medium text-gray-700 mb-1">集點卡總點數</label>
+                        <input type="number" id="newCustomerPoints" min="10" max="20" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="請輸入總點數，可輸入點數範圍為10-20 點" required>
+                        <p id="pointsError" class="text-red-500 text-sm mt-1 hidden">請填寫10-20以內的數字</p>
+                    </div>
+                    <button type="submit" id="addCustomerBtn" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
+                        新增客戶
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP按鈕 -->
+    <button id="topBtn" class="top-button bg-indigo-600 text-white shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-200">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- 導航欄 -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t border-gray-200">
+        <div class="flex justify-around items-center h-16">
+            <div class="nav-item flex flex-col items-center cursor-pointer" data-page="customerSearchPage">
+                <i class="fas fa-search text-xl nav-icon"></i>
+                <span class="text-xs mt-1">客戶查詢</span>
+            </div>
+            <div class="nav-item flex flex-col items-center cursor-pointer" data-page="pointCardRecordPage">
+                <i class="fas fa-list-alt text-xl nav-icon"></i>
+                <span class="text-xs mt-1">集點卡紀錄</span>
+            </div>
+            <div class="nav-item flex flex-col items-center cursor-pointer" data-page="addCustomerPage">
+                <i class="fas fa-user-plus text-xl nav-icon"></i>
+                <span class="text-xs mt-1">新增客戶</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 模擬資料庫
+        let customers = [];
+        let serviceHistory = [];
+        let currentCustomer = null;
+        let selectedService = null;
+        let lastSearchPhone = '';
+        let credentials = {
+            username: 'admin123',
+            password: 'admin5566'
+        };
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 檢查本地存儲
+            loadData();
+            
+            // 如果沒有客戶資料，創建一些示例數據
+            if (customers.length === 0) {
+                createSampleData();
+            }
+            
+            // 設置導航欄
+            setupNavigation();
+            
+            // 設置TOP按鈕
+            setupTopButton();
+            
+            // 設置客戶查詢頁面
+            setupCustomerSearchPage();
+            
+            // 設置集點卡紀錄頁面
+            setupPointCardRecordPage();
+            
+            // 設置新增客戶頁面
+            setupAddCustomerPage();
+            
+            // 設置登入功能
+            setupLogin();
+            
+            // 設置設定功能
+            setupSettings();
+            
+            // 設置登出功能
+            setupLogout();
+            
+            // 設置匯出JSON功能
+            setupExportJson();
+            
+            // 顯示客戶列表
+            displayAllCustomers();
+        });
+        
+        // 加載數據
+        function loadData() {
+            const savedCustomers = localStorage.getItem('loyaltyAppCustomers');
+            const savedHistory = localStorage.getItem('loyaltyAppHistory');
+            const savedCredentials = localStorage.getItem('loyaltyAppCredentials');
+            
+            if (savedCustomers) {
+                customers = JSON.parse(savedCustomers);
+            }
+            
+            if (savedHistory) {
+                serviceHistory = JSON.parse(savedHistory);
+            }
+            
+            if (savedCredentials) {
+                credentials = JSON.parse(savedCredentials);
+            }
+        }
+        
+        // 保存數據
+        function saveData() {
+            localStorage.setItem('loyaltyAppCustomers', JSON.stringify(customers));
+            localStorage.setItem('loyaltyAppHistory', JSON.stringify(serviceHistory));
+            localStorage.setItem('loyaltyAppCredentials', JSON.stringify(credentials));
+        }
+        
+        // 創建示例數據
+        function createSampleData() {
+            customers = [
+                { name: '王小明', phone: '0912345678', totalPoints: 15, usedPoints: 3 },
+                { name: '李小花', phone: '0923456789', totalPoints: 12, usedPoints: 5 },
+                { name: '張大山', phone: '0934567890', totalPoints: 20, usedPoints: 8 }
+            ];
+            
+            serviceHistory = [
+                { phone: '0912345678', service: '洗髮', time: '2023-05-15 14:30', usageCount: 1 },
+                { phone: '0912345678', service: '剪髮', time: '2023-05-20 16:45', usageCount: 2 },
+                { phone: '0912345678', service: '護髮', time: '2023-05-25 10:15', usageCount: 3 },
+                { phone: '0923456789', service: '染髮', time: '2023-05-10 11:30', usageCount: 1 },
+                { phone: '0923456789', service: '燙髮', time: '2023-05-18 13:20', usageCount: 2 },
+                { phone: '0923456789', service: '洗髮', time: '2023-05-22 15:10', usageCount: 3 },
+                { phone: '0923456789', service: '剪髮', time: '2023-05-28 17:40', usageCount: 4 },
+                { phone: '0923456789', service: '深層護理', time: '2023-06-01 09:50', usageCount: 5 },
+                { phone: '0934567890', service: '洗髮', time: '2023-05-05 10:00', usageCount: 1 },
+                { phone: '0934567890', service: '剪髮', time: '2023-05-12 12:30', usageCount: 2 },
+                { phone: '0934567890', service: '染髮', time: '2023-05-19 14:15', usageCount: 3 },
+                { phone: '0934567890', service: '燙髮', time: '2023-05-24 16:20', usageCount: 4 },
+                { phone: '0934567890', service: '護髮', time: '2023-05-29 11:45', usageCount: 5 },
+                { phone: '0934567890', service: '深層護理', time: '2023-06-02 13:10', usageCount: 6 },
+                { phone: '0934567890', service: '洗髮', time: '2023-06-05 15:30', usageCount: 7 },
+                { phone: '0934567890', service: '剪髮', time: '2023-06-10 17:00', usageCount: 8 }
+            ];
+            
+            saveData();
+        }
+        
+        // 設置導航欄
+        function setupNavigation() {
+            const navItems = document.querySelectorAll('.nav-item');
+            const pages = document.querySelectorAll('.page');
+            
+            // 初始化第一個導航項為活動狀態
+            navItems[0].querySelector('.nav-icon').classList.add('active-nav');
+            
+            navItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const targetPageId = this.getAttribute('data-page');
+                    
+                    // 隱藏所有頁面
+                    pages.forEach(page => {
+                        page.classList.remove('active-page');
+                    });
+                    
+                    // 顯示目標頁面
+                    document.getElementById(targetPageId).classList.add('active-page');
+                    
+                    // 更新導航項的活動狀態
+                    navItems.forEach(navItem => {
+                        navItem.querySelector('.nav-icon').classList.remove('active-nav');
+                    });
+                    this.querySelector('.nav-icon').classList.add('active-nav');
+                    
+                    // 如果切換到集點卡紀錄頁面，顯示所有客戶
+                    if (targetPageId === 'pointCardRecordPage') {
+                        displayAllCustomers();
+                    }
+                    
+                    // 如果切換到客戶查詢頁面，顯示上次搜尋結果
+                    if (targetPageId === 'customerSearchPage' && lastSearchPhone) {
+                        document.getElementById('searchPhone').value = lastSearchPhone;
+                        searchCustomer(lastSearchPhone);
+                    }
+                    
+                    // 滾動到頁面頂部
+                    window.scrollTo(0, 0);
+                });
+            });
+        }
+        
+        // 設置TOP按鈕
+        function setupTopButton() {
+            const topBtn = document.getElementById('topBtn');
+            
+            window.addEventListener('scroll', function() {
+                if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                    topBtn.style.display = 'flex';
+                } else {
+                    topBtn.style.display = 'none';
+                }
+            });
+            
+            topBtn.addEventListener('click', function() {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+        }
+        
+        // 設置客戶查詢頁面
+        function setupCustomerSearchPage() {
+            const searchBtn = document.getElementById('searchBtn');
+            const searchPhone = document.getElementById('searchPhone');
+            const serviceOptions = document.querySelectorAll('.service-option');
+            const usePointBtn = document.getElementById('usePointBtn');
+            const addPointsBtn = document.getElementById('addPointsBtn');
+            
+            searchBtn.addEventListener('click', function() {
+                const phone = searchPhone.value.trim();
+                if (phone) {
+                    searchCustomer(phone);
+                    lastSearchPhone = phone;
+                } else {
+                    showNotification('請輸入手機號碼', 'error');
+                }
+            });
+            
+            serviceOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    serviceOptions.forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    selectedService = this.getAttribute('data-service');
+                    usePointBtn.disabled = false;
+                });
+            });
+            
+            usePointBtn.addEventListener('click', function() {
+                if (currentCustomer && selectedService) {
+                    usePoint(currentCustomer.phone, selectedService);
+                }
+            });
+            
+            // 增加點數功能
+            addPointsBtn.addEventListener('click', function() {
+                if (currentCustomer) {
+                    const pointsToAdd = parseInt(document.getElementById('addPointsInput').value);
+                    if (pointsToAdd && pointsToAdd > 0) {
+                        addPoints(currentCustomer.phone, pointsToAdd);
+                    } else {
+                        showNotification('請輸入有效的點數', 'error');
+                    }
+                }
+            });
+        }
+        
+        // 搜尋客戶
+        function searchCustomer(phone) {
+            const customer = customers.find(c => c.phone === phone);
+            
+            if (customer) {
+                currentCustomer = customer;
+                displayCustomerInfo(customer);
+                displayServiceHistory(phone);
+                showNotification(`已找到 ${customer.name} 的集點卡`, 'success');
+            } else {
+                document.getElementById('pointCardBlock').classList.add('hidden');
+                document.getElementById('serviceHistoryBlock').classList.add('hidden');
+                showNotification('找不到此手機號碼的客戶', 'error');
+            }
+        }
+        
+        // 顯示客戶資訊
+        function displayCustomerInfo(customer) {
+            document.getElementById('customerName').textContent = customer.name;
+            document.getElementById('customerPhone').textContent = customer.phone;
+            document.getElementById('usedPoints').textContent = customer.usedPoints;
+            document.getElementById('totalPoints').textContent = customer.totalPoints;
+            
+            // 顯示點數圖示
+            displayPointIcons(customer);
+            
+            document.getElementById('pointCardBlock').classList.remove('hidden');
+            
+            // 重置服務選擇
+            document.querySelectorAll('.service-option').forEach(opt => opt.classList.remove('selected'));
+            document.getElementById('usePointBtn').disabled = true;
+            selectedService = null;
+            
+            // 重置增加點數輸入框
+            document.getElementById('addPointsInput').value = '';
+        }
+        
+        // 顯示點數圖示
+        function displayPointIcons(customer) {
+            const pointIconsBlock = document.getElementById('pointIconsBlock');
+            pointIconsBlock.innerHTML = '';
+            
+            // 計算需要多少行來顯示所有點數
+            const iconsPerRow = 10;
+            const totalRows = Math.ceil(customer.totalPoints / iconsPerRow);
+            
+            let iconIndex = 0;
+            
+            for (let row = 0; row < totalRows; row++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'point-icons-row';
+                
+                // 計算這一行需要顯示多少個點數
+                const iconsInThisRow = Math.min(iconsPerRow, customer.totalPoints - iconIndex);
+                
+                for (let i = 0; i < iconsInThisRow; i++) {
+                    const pointIcon = document.createElement('div');
+                    if (iconIndex < customer.usedPoints) {
+                        pointIcon.className = 'point-icon used-point';
+                        pointIcon.innerHTML = '<i class="fas fa-check"></i>';
+                    } else {
+                        pointIcon.className = 'point-icon unused-point';
+                        pointIcon.innerHTML = '<i class="fas fa-star"></i>';
+                    }
+                    rowDiv.appendChild(pointIcon);
+                    iconIndex++;
+                }
+                
+                pointIconsBlock.appendChild(rowDiv);
+            }
+        }
+        
+        // 顯示服務歷史
+        function displayServiceHistory(phone) {
+            const history = serviceHistory.filter(h => h.phone === phone);
+            const historyBlock = document.getElementById('serviceHistoryBlock');
+            const historyRecords = document.getElementById('historyRecords');
+            const historyUsedPoints = document.getElementById('historyUsedPoints');
+            
+            if (history.length > 0) {
+                historyUsedPoints.textContent = history.length;
+                historyRecords.innerHTML = '';
+                
+                // 按時間排序，最新的在最上面
+                history.sort((a, b) => b.usageCount - a.usageCount); /*new Date(b.time) - new Date(a.time));*/
+                
+                history.forEach(record => {
+                    const recordItem = document.createElement('div');
+                    recordItem.className = `bg-gray-50 p-3 rounded-md`;
+                    recordItem.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center">
+                                <span class="service-tag service-${record.service}">${record.service}</span>
+                                <span class="text-gray-500 text-sm">第${record.usageCount}次使用</span>
+                            </div>
+                            <span class="text-gray-500 text-sm">${record.time}</span>
+                        </div>
+                    `;
+                    historyRecords.appendChild(recordItem);
+                });
+                
+                historyBlock.classList.remove('hidden');
+            } else {
+                historyBlock.classList.add('hidden');
+            }
+        }
+        
+        // 使用點數
+        function usePoint(phone, service) {
+            const customer = customers.find(c => c.phone === phone);
+            
+            if (customer) {
+                if (customer.usedPoints < customer.totalPoints) {
+                    customer.usedPoints += 1;
+                    
+                    // 創建服務歷史記錄
+                    const now = new Date();
+                    const timeString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                    
+                    const historyRecord = {
+                        phone: phone,
+                        service: service,
+                        time: timeString,
+                        usageCount: customer.usedPoints
+                    };
+                    
+                    serviceHistory.push(historyRecord);
+                    
+                    // 更新顯示
+                    displayCustomerInfo(customer);
+                    displayServiceHistory(phone);
+                    
+                    // 保存數據
+                    saveData();
+                    
+                    showNotification(`已使用點數，服務：${service}`, 'success');
+                } else {
+                    showNotification('點數已用完，無法再使用', 'error');
+                }
+            }
+        }
+        
+        // 增加點數
+        function addPoints(phone, pointsToAdd) {
+            const customer = customers.find(c => c.phone === phone);
+            
+            if (customer) {
+                customer.totalPoints += pointsToAdd;
+                
+                // 更新顯示
+                displayCustomerInfo(customer);
+                
+                // 保存數據
+                saveData();
+                
+                showNotification(`已增加 ${pointsToAdd} 點數`, 'success');
+            }
+        }
+        
+        // 設置集點卡紀錄頁面
+        function setupPointCardRecordPage() {
+            const recordSearchBtn = document.getElementById('recordSearchBtn');
+            const recordSearchPhone = document.getElementById('recordSearchPhone');
+            const exportDataBtn = document.getElementById('exportDataBtn');
+            const importDataBtn = document.getElementById('importDataBtn');
+            const fileInput = document.getElementById('fileInput');
+            
+            recordSearchBtn.addEventListener('click', function() {
+                const phone = recordSearchPhone.value.trim();
+                if (phone) {
+                    filterCustomerList(phone);
+                } else {
+                    displayAllCustomers();
+                }
+            });
+            
+            recordSearchPhone.addEventListener('input', function() {
+                if (this.value.trim() === '') {
+                    displayAllCustomers();
+                }
+            });
+            
+            exportDataBtn.addEventListener('click', function() {
+                showExportJsonModal();
+            });
+            
+            importDataBtn.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    importData(file);
+                }
+            });
+        }
+        
+        // 顯示所有客戶
+        function displayAllCustomers() {
+            const customerList = document.getElementById('customerList');
+            customerList.innerHTML = '';
+            
+            customers.forEach(customer => {
+                const customerCard = document.createElement('div');
+                customerCard.className = 'customer-card bg-white rounded-lg shadow-md p-4 relative';
+                customerCard.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <p class="text-gray-600">${customer.phone}</p>
+                            <h3 class="font-semibold text-lg">${customer.name}</h3>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="text-right mr-4">
+                                <div>
+                                    <span class="text-sm text-gray-600">已使用點數:</span>
+                                    <span class="font-semibold text-indigo-600">${customer.usedPoints}</span>
+                                </div>
+                                <div>
+                                    <span class="text-sm text-gray-600">總點數:</span>
+                                    <span class="font-semibold text-indigo-600">${customer.totalPoints}</span>
+                                </div>
+                            </div>
+                            <button class="delete-customer" data-phone="${customer.phone}">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                customerCard.setAttribute('data-phone', customer.phone);
+                customerList.appendChild(customerCard);
+                
+                // 添加點擊事件，導航到客戶查詢頁面
+                customerCard.addEventListener('click', function(e) {
+                    // 如果點擊的是刪除按鈕，不執行導航
+                    if (e.target.closest('.delete-customer')) {
+                        return;
+                    }
+                    
+                    const phone = this.getAttribute('data-phone');
+                    // 切換到客戶查詢頁面
+                    document.querySelector('.nav-item[data-page="customerSearchPage"]').click();
+                    // 設置搜尋框的值
+                    document.getElementById('searchPhone').value = phone;
+                    // 執行搜尋
+                    searchCustomer(phone);
+                });
+            });
+            
+            // 添加刪除客戶的事件監聽器
+            document.querySelectorAll('.delete-customer').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const phone = this.getAttribute('data-phone');
+                    deleteCustomer(phone);
+                });
+            });
+        }
+        
+        // 刪除客戶
+        function deleteCustomer(phone) {
+            if (confirm(`確定要刪除手機號碼為 ${phone} 的客戶嗎？`)) {
+                // 從客戶列表中刪除
+                customers = customers.filter(c => c.phone !== phone);
+                
+                // 從服務歷史中刪除
+                serviceHistory = serviceHistory.filter(h => h.phone !== phone);
+                
+                // 保存數據
+                saveData();
+                
+                // 重新顯示客戶列表
+                displayAllCustomers();
+                
+                showNotification('客戶已成功刪除', 'success');
+            }
+        }
+        
+        // 過濾客戶列表
+        function filterCustomerList(phone) {
+            const filteredCustomers = customers.filter(c => c.phone.includes(phone));
+            const customerList = document.getElementById('customerList');
+            customerList.innerHTML = '';
+            
+            if (filteredCustomers.length > 0) {
+                filteredCustomers.forEach(customer => {
+                    const customerCard = document.createElement('div');
+                    customerCard.className = 'customer-card bg-white rounded-lg shadow-md p-4 relative';
+                    customerCard.innerHTML = `
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <p class="text-gray-600">${customer.phone}</p>
+                                <h3 class="font-semibold text-lg">${customer.name}</h3>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="text-right mr-4">
+                                    <div>
+                                        <span class="text-sm text-gray-600">已使用點數:</span>
+                                        <span class="font-semibold text-indigo-600">${customer.usedPoints}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-sm text-gray-600">總點數:</span>
+                                        <span class="font-semibold text-indigo-600">${customer.totalPoints}</span>
+                                    </div>
+                                </div>
+                                <button class="delete-customer" data-phone="${customer.phone}">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    customerCard.setAttribute('data-phone', customer.phone);
+                    customerList.appendChild(customerCard);
+                    
+                    // 添加點擊事件，導航到客戶查詢頁面
+                    customerCard.addEventListener('click', function(e) {
+                        // 如果點擊的是刪除按鈕，不執行導航
+                        if (e.target.closest('.delete-customer')) {
+                            return;
+                        }
+                        
+                        const phone = this.getAttribute('data-phone');
+                        // 切換到客戶查詢頁面
+                        document.querySelector('.nav-item[data-page="customerSearchPage"]').click();
+                        // 設置搜尋框的值
+                        document.getElementById('searchPhone').value = phone;
+                        // 執行搜尋
+                        searchCustomer(phone);
+                    });
+                });
+                
+                // 添加刪除客戶的事件監聽器
+                document.querySelectorAll('.delete-customer').forEach(btn => {
+                    btn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const phone = this.getAttribute('data-phone');
+                        deleteCustomer(phone);
+                    });
+                });
+            } else {
+                customerList.innerHTML = '<div class="col-span-full text-center py-8 text-gray-500">找不到符合的客戶</div>';
+            }
+        }
+        
+        // 設置新增客戶頁面
+        function setupAddCustomerPage() {
+            const addCustomerForm = document.getElementById('addCustomerForm');
+            const newCustomerPoints = document.getElementById('newCustomerPoints');
+            const pointsError = document.getElementById('pointsError');
+            
+            newCustomerPoints.addEventListener('input', function() {
+                const value = parseInt(this.value);
+                if (value < 10 || value > 20) {
+                    pointsError.classList.remove('hidden');
+                } else {
+                    pointsError.classList.add('hidden');
+                }
+            });
+            
+            addCustomerForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const name = document.getElementById('newCustomerName').value.trim();
+                const phone = document.getElementById('newCustomerPhone').value.trim();
+                const points = parseInt(document.getElementById('newCustomerPoints').value);
+                
+                if (name && phone && points >= 10 && points <= 20) {
+                    // 檢查手機號碼是否已存在
+                    const existingCustomer = customers.find(c => c.phone === phone);
+                    if (existingCustomer) {
+                        showNotification('此手機號碼已存在', 'error');
+                        return;
+                    }
+                    
+                    // 新增客戶
+                    const newCustomer = {
+                        name: name,
+                        phone: phone,
+                        totalPoints: points,
+                        usedPoints: 0
+                    };
+                    
+                    customers.push(newCustomer);
+                    saveData();
+                    
+                    // 重置表單
+                    addCustomerForm.reset();
+                    
+                    showNotification(`已新增客戶：${name}`, 'success');
+                } else {
+                    if (points < 10 || points > 20) {
+                        pointsError.classList.remove('hidden');
+                    }
+                    showNotification('請填寫所有必填欄位', 'error');
+                }
+            });
+        }
+        
+        // 設置登入功能
+        function setupLogin() {
+            const loginPage = document.getElementById('loginPage');
+            const loginBtn = document.getElementById('loginBtn');
+            const loginError = document.getElementById('loginError');
+            
+            // 檢查是否已登入
+            const isLoggedIn = sessionStorage.getItem('loyaltyAppLoggedIn');
+            if (isLoggedIn === 'true') {
+                loginPage.style.display = 'none';
+            }
+            
+            loginBtn.addEventListener('click', function() {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value;
+                
+                if (username === credentials.username && password === credentials.password) {
+                    sessionStorage.setItem('loyaltyAppLoggedIn', 'true');
+                    loginPage.style.display = 'none';
+                } else {
+                    loginError.classList.remove('hidden');
+                    setTimeout(() => {
+                        loginError.classList.add('hidden');
+                    }, 3000);
+                }
+            });
+        }
+        
+        // 設置登出功能
+        function setupLogout() {
+            const logoutBtn = document.getElementById('logoutBtn');
+            const loginPage = document.getElementById('loginPage');
+            
+            logoutBtn.addEventListener('click', function() {
+                if (confirm('確定要登出嗎？')) {
+                    sessionStorage.removeItem('loyaltyAppLoggedIn');
+                    loginPage.style.display = 'flex';
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                }
+            });
+        }
+        
+        // 設置設定功能
+        function setupSettings() {
+            const settingsBtn = document.getElementById('settingsBtn');
+            const settingsPanel = document.getElementById('settingsPanel');
+            const closeSettings = document.getElementById('closeSettings');
+            const changePasswordBtn = document.getElementById('changePasswordBtn');
+            const passwordError = document.getElementById('passwordError');
+            
+            settingsBtn.addEventListener('click', function() {
+                settingsPanel.style.display = 'block';
+            });
+            
+            closeSettings.addEventListener('click', function() {
+                settingsPanel.style.display = 'none';
+                document.getElementById('currentPassword').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+                passwordError.classList.add('hidden');
+            });
+            
+            changePasswordBtn.addEventListener('click', function() {
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                
+                if (currentPassword === credentials.password && newPassword === confirmPassword && newPassword.trim() !== '') {
+                    credentials.password = newPassword;
+                    saveData();
+                    
+                    settingsPanel.style.display = 'none';
+                    document.getElementById('currentPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                    
+                    showNotification('密碼已成功更改', 'success');
+                    showWarningNotification();
+                } else {
+                    passwordError.classList.remove('hidden');
+                    setTimeout(() => {
+                        passwordError.classList.add('hidden');
+                    }, 3000);
+                }
+            });
+        }
+        
+        // 設置匯出JSON功能
+        function setupExportJson() {
+            const exportJsonModal = document.getElementById('exportJsonModal');
+            const closeExportJson = document.getElementById('closeExportJson');
+            const copyJsonBtn = document.getElementById('copyJsonBtn');
+            const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+            
+            closeExportJson.addEventListener('click', function() {
+                exportJsonModal.style.display = 'none';
+            });
+            
+            copyJsonBtn.addEventListener('click', function() {
+                const jsonOutput = document.getElementById('jsonOutput');
+                jsonOutput.select();
+                document.execCommand('copy');
+                showNotification('JSON資料已複製到剪貼簿', 'success');
+            });
+            
+            downloadJsonBtn.addEventListener('click', function() {
+                const jsonData = document.getElementById('jsonOutput').value;
+                const blob = new Blob([jsonData], { type: 'application/json' });
+                const fileName = `集點卡系統資料_${new Date().toISOString().slice(0, 10)}.json`;
+                
+                // 下載檔案
+                saveAs(blob, fileName);
+                
+                showNotification('JSON檔案已下載', 'success');
+            });
+        }
+        
+        // 顯示匯出JSON模態框
+        function showExportJsonModal() {
+            // 將客戶資料與服務歷史合併
+            const exportData = [];
+            
+            customers.forEach(customer => {
+                const customerHistory = serviceHistory.filter(h => h.phone === customer.phone);
+                
+                exportData.push({
+                    name: customer.name,
+                    phone: customer.phone,
+                    totalPoints: customer.totalPoints,
+                    usedPoints: customer.usedPoints,
+                    serviceHistory: customerHistory
+                });
+            });
+            
+            const jsonOutput = document.getElementById('jsonOutput');
+            jsonOutput.value = JSON.stringify(exportData, null, 2);
+            
+            document.getElementById('exportJsonModal').style.display = 'block';
+        }
+        
+        // 顯示警告通知
+        function showWarningNotification() {
+            const notification = document.createElement('div');
+            notification.className = 'notification warning fade-in';
+            notification.innerHTML = `
+                <i class="fas fa-exclamation-triangle text-yellow-500 mr-3 text-xl"></i>
+                <div>
+                    <p class="font-medium">請注意改完密碼一定要寫下來，因為此APP沒有資料庫功能，無法透過認證信確認密碼，如果密碼不見了就會再也無法登入!</p>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 5000);
+        }
+        
+        // 顯示通知
+        function showNotification(message, type) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type} fade-in`;
+            
+            let icon = '';
+            if (type === 'success') {
+                icon = '<i class="fas fa-check-circle text-green-500 mr-3 text-xl"></i>';
+            } else if (type === 'error') {
+                icon = '<i class="fas fa-times-circle text-red-500 mr-3 text-xl"></i>';
+            }
+            
+            notification.innerHTML = `
+                ${icon}
+                <div>
+                    <p class="font-medium">${message}</p>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+        
+        // 匯入資料
+        function importData(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    if (file.name.endsWith('.json')) {
+                        // 處理JSON檔案
+                        const importedData = JSON.parse(e.target.result);
+                        
+                        // 檢查是否為合併格式的JSON
+                        if (Array.isArray(importedData) && importedData.length > 0 && importedData[0].serviceHistory) {
+                            // 處理合併格式的JSON
+                            importedData.forEach(item => {
+                                // 檢查客戶是否已存在
+                                const existingCustomerIndex = customers.findIndex(c => c.phone === item.phone);
+                                
+                                if (existingCustomerIndex === -1) {
+                                    // 新增客戶
+                                    customers.push({
+                                        name: item.name,
+                                        phone: item.phone,
+                                        totalPoints: item.totalPoints,
+                                        usedPoints: item.usedPoints
+                                    });
+                                    
+                                    // 新增服務歷史
+                                    if (item.serviceHistory && Array.isArray(item.serviceHistory)) {
+                                        serviceHistory = serviceHistory.concat(item.serviceHistory);
+                                    }
+                                }
+                            });
+                        } else if (importedData.customers && importedData.serviceHistory) {
+                            // 處理分開格式的JSON
+                            // 新增客戶
+                            importedData.customers.forEach(newCustomer => {
+                                const existingCustomerIndex = customers.findIndex(c => c.phone === newCustomer.phone);
+                                if (existingCustomerIndex === -1) {
+                                    customers.push(newCustomer);
+                                }
+                            });
+                            
+                            // 新增服務歷史
+                            importedData.serviceHistory.forEach(newHistory => {
+                                const existingHistoryIndex = serviceHistory.findIndex(h => 
+                                    h.phone === newHistory.phone && 
+                                    h.service === newHistory.service && 
+                                    h.time === newHistory.time
+                                );
+                                if (existingHistoryIndex === -1) {
+                                    serviceHistory.push(newHistory);
+                                }
+                            });
+                        } else {
+                            showNotification('無效的JSON格式', 'error');
+                            return;
+                        }
+                        
+                        saveData();
+                        displayAllCustomers();
+                        showNotification('資料已成功匯入', 'success');
+                    } else if (file.name.endsWith('.xlsx')) {
+                        // 處理Excel檔案
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        // 假設Excel有一個工作表
+                        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                        
+                        if (sheet) {
+                            const importedData = XLSX.utils.sheet_to_json(sheet, {header: ['name', 'phone', 'usedPoints', 'totalPoints']});
+                            
+                            // 移除標題行
+                            if (importedData.length > 0 && importedData[0].name === '姓名') {
+                                importedData.shift();
+                            }
+                            
+                            if (importedData.length > 0) {
+                                // 確保資料格式正確
+                                const validCustomers = importedData.filter(item => 
+                                    item.name && item.phone && 
+                                    typeof item.usedPoints !== 'undefined' && 
+                                    typeof item.totalPoints !== 'undefined'
+                                );
+                                
+                                if (validCustomers.length > 0) {
+                                    // 新增客戶，不覆蓋現有客戶
+                                    validCustomers.forEach(newCustomer => {
+                                        const existingCustomerIndex = customers.findIndex(c => c.phone === newCustomer.phone);
+                                        if (existingCustomerIndex === -1) {
+                                            customers.push(newCustomer);
+                                        }
+                                    });
+                                    
+                                    saveData();
+                                    displayAllCustomers();
+                                    showNotification('客戶資料已成功匯入', 'success');
+                                } else {
+                                    showNotification('Excel檔案中沒有有效的客戶資料', 'error');
+                                }
+                            } else {
+                                showNotification('Excel檔案中沒有客戶資料', 'error');
+                            }
+                        } else {
+                            showNotification('無效的Excel格式', 'error');
+                        }
+                    } else {
+                        showNotification('不支援的檔案格式', 'error');
+                    }
+                } catch (error) {
+                    console.error('匯入資料時發生錯誤:', error);
+                    showNotification('匯入資料時發生錯誤', 'error');
+                }
+            };
+            
+            if (file.name.endsWith('.json')) {
+                reader.readAsText(file);
+            } else if (file.name.endsWith('.xlsx')) {
+                reader.readAsArrayBuffer(file);
+            } else {
+                showNotification('不支援的檔案格式', 'error');
+            }
+        }
+        
+        // 保存檔案的輔助函數
+        function saveAs(blob, fileName) {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+    </script>
+</body>
+</html>
